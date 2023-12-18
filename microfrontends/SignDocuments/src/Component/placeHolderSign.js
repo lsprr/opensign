@@ -17,7 +17,12 @@ import HandleError from "./component/HandleError";
 import Nodata from "./component/Nodata";
 import SignerListPlace from "./component/signerListPlace";
 import Header from "./component/header";
-import { contactBook, contractUsers, getHostUrl } from "../utils/Utils";
+import {
+  pdfNewWidthFun,
+  contractDocument,
+  contractUsers,
+  getHostUrl
+} from "../utils/Utils";
 import RenderPdf from "./component/renderPdf";
 import ModalComponent from "./component/modalComponent";
 import { useNavigate } from "react-router-dom";
@@ -31,13 +36,10 @@ function PlaceHolderSign() {
   const [pageNumber, setPageNumber] = useState(1);
   const [signBtnPosition, setSignBtnPosition] = useState([]);
   const [xySignature, setXYSignature] = useState({});
-  const signRef = useRef(null);
-  const dragRef = useRef(null);
   const [dragKey, setDragKey] = useState();
   const [signersdata, setSignersData] = useState();
   const [signerObjId, setSignerObjId] = useState();
   const [signerPos, setSignerPos] = useState([]);
-
   const [isSelectListId, setIsSelectId] = useState();
   const [isSendAlert, setIsSendAlert] = useState({});
   const [isSend, setIsSend] = useState(false);
@@ -56,6 +58,9 @@ function PlaceHolderSign() {
   const [pdfOriginalWidth, setPdfOriginalWidth] = useState();
   const [contractName, setContractName] = useState("");
   const { docId } = useParams();
+  const signRef = useRef(null);
+  const dragRef = useRef(null);
+  const divRef = useRef(null);
   const [isShowEmail, setIsShowEmail] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState(false);
   const [pdfLoadFail, setPdfLoadFail] = useState({
@@ -156,69 +161,53 @@ function PlaceHolderSign() {
   const jsonSender = JSON.parse(senderUser);
 
   useEffect(() => {
-    const clientWidth = window.innerWidth;
-    const value = docId ? 80 : 30;
-    const pdfWidth = clientWidth - 160 - 200 - value;
-    //160 is width of left side, 200 is width of right side component and 50 is space of middle compoent
-    //pdf from left and right component
-    setPdfNewWidth(pdfWidth);
     if (documentId) {
       getDocumentDetails();
     }
   }, []);
 
+  useEffect(() => {
+    if (divRef.current) {
+      const pdfWidth = pdfNewWidthFun(divRef);
+      setPdfNewWidth(pdfWidth);
+    }
+  }, [divRef.current]);
   //function for get document details
   const getDocumentDetails = async () => {
-    await axios
-      .get(
-        `${localStorage.getItem("baseUrl")}classes/${localStorage.getItem(
-          "_appName"
-        )}_Document?where={"objectId":"${documentId}"}&include=ExtUserPtr,Signers`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "X-Parse-Application-Id": localStorage.getItem("parseAppId"),
-            "X-Parse-Session-Token": localStorage.getItem("accesstoken")
-          }
-        }
-      )
-      .then((Listdata) => {
-        const json = Listdata.data;
-        const res = json.results;
+    //getting document details
+    const documentData = await contractDocument(documentId);
+    if (documentData && documentData.length > 0) {
+      setPdfDetails(documentData);
 
-        if (res[0] && res.length > 0) {
-          setPdfDetails(res);
+      const currEmail = documentData[0].ExtUserPtr.Email;
+      const filterCurrEmail = documentData[0].Signers.filter(
+        (data) => data.Email === currEmail
+      );
 
-          const currEmail = res[0].ExtUserPtr.Email;
-          const filterCurrEmail = res[0].Signers.filter(
-            (data) => data.Email === currEmail
-          );
+      setCurrentEmail(filterCurrEmail);
+      setSignersData(documentData[0]);
 
-          setCurrentEmail(filterCurrEmail);
-          setSignersData(res[0]);
+      setSignerObjId(documentData[0].Signers[0].objectId);
+      setContractName(documentData[0].Signers[0].className);
+      setIsSelectId(0);
+    } else if (
+      documentData === "Error: Something went wrong!" ||
+      (documentData.result && documentData.result.error)
+    ) {
+      const loadObj = {
+        isLoad: false
+      };
+      setHandleError("Error: Something went wrong!");
+      setIsLoading(loadObj);
+    } else {
+      setNoData(true);
 
-          setSignerObjId(res[0].Signers[0].objectId);
-          setContractName(res[0].Signers[0].className);
-          setIsSelectId(0);
-        } else {
-          setNoData(true);
-          const loadObj = {
-            isLoad: false
-          };
-          setIsLoading(loadObj);
-        }
-      })
-      .catch((err) => {
-        console.log("axois err ", err);
-        const loadObj = {
-          isLoad: false
-        };
-        setHandleError("Error: Something went wrong!");
-        setIsLoading(loadObj);
-      });
-
-    const res = await contractUsers(jsonSender.objectId);
-
+      const loadObj = {
+        isLoad: false
+      };
+      setIsLoading(loadObj);
+    }
+    const res = await contractUsers(jsonSender.email);
     if (res[0] && res.length) {
       setSignerUserId(res[0].objectId);
       const tourstatus = res[0].TourStatus && res[0].TourStatus;
@@ -242,24 +231,12 @@ function PlaceHolderSign() {
       setHandleError("Error: Something went wrong!");
       setIsLoading(loadObj);
     } else if (res.length === 0) {
-      const res = await contactBook(jsonSender.objectId);
-      if (res[0] && res.length) {
-        setSignerUserId(res[0].objectId);
-        const tourstatus = res[0].TourStatus && res[0].TourStatus;
-        if (tourstatus && tourstatus.length > 0) {
-          setTourStatus(tourstatus);
-          const checkTourRecipients = tourstatus.filter(
-            (data) => data.placeholder
-          );
-          if (checkTourRecipients && checkTourRecipients.length > 0) {
-            setCheckTourStatus(checkTourRecipients[0].placeholder);
-          }
-        }
-        const loadObj = {
-          isLoad: false
-        };
-        setIsLoading(loadObj);
-      }
+      setNoData(true);
+
+      const loadObj = {
+        isLoad: false
+      };
+      setIsLoading(loadObj);
     }
   };
 
@@ -856,7 +833,7 @@ function PlaceHolderSign() {
       ) : noData ? (
         <Nodata />
       ) : (
-        <div className="signatureContainer">
+        <div className="signatureContainer" ref={divRef}>
           {/* this component used for UI interaction and show their functionality */}
           {!checkTourStatus && (
             //this tour component used in your html component where you want to put

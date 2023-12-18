@@ -49,12 +49,9 @@ const TreeWidget = (props) => {
                 let data = JSON.parse(localStorage.getItem("Extand_Class"));
                 res = data[0];
               } else {
-                var emp = Parse.Object.extend(
-                  localStorage.getItem("extended_class")
-                );
-                var q = new Parse.Query(emp);
-                q.equalTo("UserId", currentUser);
-                res = await q.first();
+                res = await Parse.Cloud.run("getUserDetails", {
+                  email: currentUser.get("email")
+                });
                 if (res) res = res.toJSON();
               }
               if (res) {
@@ -79,12 +76,9 @@ const TreeWidget = (props) => {
                   let data = JSON.parse(localStorage.getItem("Extand_Class"));
                   res = data[0];
                 } else {
-                  emp = Parse.Object.extend(
-                    localStorage.getItem("extended_class")
-                  );
-                  q = new Parse.Query(emp);
-                  q.equalTo("UserId", currentUser);
-                  res = await q.first();
+                  res = await Parse.Cloud.run("getUserDetails", {
+                    email: currentUser.get("email")
+                  });
                   if (res) res = res.toJSON();
                 }
 
@@ -121,10 +115,15 @@ const TreeWidget = (props) => {
             let data = JSON.parse(localStorage.getItem("Extand_Class"));
             res = data[0];
           } else {
-            emp = Parse.Object.extend(localStorage.getItem("extended_class"));
-            q = new Parse.Query(emp);
-            q.equalTo("UserId", currentUser);
-            res = await q.first();
+            // emp = Parse.Object.extend(localStorage.getItem("extended_class"));
+            // q = new Parse.Query(emp);
+            // q.equalTo("UserId", currentUser);
+            // res = await q.first();
+            // if (res) res = res.toJSON();
+            const currentUser = Parse.User.current();
+            res = await Parse.Cloud.run("getUserDetails", {
+              email: currentUser.get("email")
+            });
             if (res) res = res.toJSON();
           }
 
@@ -473,6 +472,8 @@ const TreeWidget = (props) => {
         props.schema.data.FolderTypeField,
         props.schema.data.FolderTypeValue
       );
+      const currentUser = Parse.User.current();
+      folder.set("CreatedBy", Parse.User.createWithoutData(currentUser.id));
       if (tabList.length > 0) {
         let len = tabList.length - 1;
         folder.set(props.schema.data.ParentFolderField, {
@@ -532,7 +533,7 @@ const TreeWidget = (props) => {
       padding: 0
     },
     overlay: {
-      width:"100%",
+      width: "100%",
       backgroundColor: "rgba(0, 0, 0, 0.75)",
       zIndex: 50
     }
@@ -699,7 +700,7 @@ const TreeWidget = (props) => {
                 ))}
               <hr />
             </div>
-            {editable && (
+            {/* {editable && (
               <TreeEditForm
                 FormId={props.schema.data.FormId}
                 objectId={editId}
@@ -708,7 +709,7 @@ const TreeWidget = (props) => {
                   selectFolderHandle();
                 }}
               />
-            )}
+            )} */}
             {isAddField && !loader && !editable && (
               <TreeFormComponent
                 Id={props.schema.data.FormId}
@@ -796,7 +797,7 @@ const TreeWidget = (props) => {
                               </a>
                             </div>
 
-                            {fldr[props.schema.data.FolderTypeField] ===
+                            {/* {fldr[props.schema.data.FolderTypeField] ===
                               props.schema.data.FolderTypeValue && (
                               <a
                                 className="float-right"
@@ -816,7 +817,7 @@ const TreeWidget = (props) => {
                                   aria-hidden="true"
                                 ></i>
                               </a>
-                            )}
+                            )} */}
                           </li>
                         )
                     )}

@@ -1,9 +1,6 @@
 import React, { useState } from "react";
 import { saveAs } from "file-saver";
 import celebration from "../../assests/newCeleb.gif";
-import close from "../../assests/close.png";
-import Modal from "react-bootstrap/Modal";
-import ModalHeader from "react-bootstrap/esm/ModalHeader";
 import axios from "axios";
 import { getBase64FromUrl } from "../../utils/Utils";
 import { themeColor } from "../../utils/ThemeColor/backColor";
@@ -16,18 +13,18 @@ function EmailComponent({
   isCeleb,
   setIsEmail,
   setSuccessEmail,
-  signObjId,
   pdfName,
-  sender
+  sender,
+  setIsAlert
 }) {
-  const [emailCount, setEmailCount] = useState([]);
+  const [emailList, setEmailList] = useState([]);
   const [emailValue, setEmailValue] = useState();
   const [isLoading, setIsLoading] = useState(false);
   //function for send email
   const sendEmail = async () => {
     setIsLoading(true);
     let sendMail;
-    for (let i = 0; i < emailCount.length; i++) {
+    for (let i = 0; i < emailList.length; i++) {
       try {
         const imgPng =
           "https://qikinnovation.ams3.digitaloceanspaces.com/logo.png";
@@ -39,12 +36,12 @@ function EmailComponent({
           "X-Parse-Application-Id": localStorage.getItem("parseAppId"),
           sessionToken: localStorage.getItem("accesstoken")
         };
-
+        const openSignUrl = "https://www.opensignlabs.com/contact-us";
         const themeBGcolor = themeColor();
         let params = {
           pdfName: pdfName,
           url: pdfUrl,
-          recipient: emailCount[i],
+          recipient: emailList[i],
           subject: `${sender.name} has signed the doc - ${pdfName}`,
           from: sender.email,
           html:
@@ -52,39 +49,61 @@ function EmailComponent({
             imgPng +
             "  height='50' style='padding:20px,width:170px,height:40px'/> </div><div style='padding:2px;font-family:system-ui; background-color:" +
             themeBGcolor +
-            ";'>    <p style='font-size:20px;font-weight:400;color:white;padding-left:20px',>  Document Copy</p></div><div><p style='padding:20px;font-family:system-ui;font-size:14px'>A copy of the document " +
+            ";'>    <p style='font-size:20px;font-weight:400;color:white;padding-left:20px',>  Document Copy</p></div><div><p style='padding:20px;font-family:system-ui;font-size:14px'>A copy of the document <strong>" +
             pdfName +
-            " Standard is attached to this email. Kindly download the document from the attachment.</p></div> </div><div><p>This is an automated email from Open Sign. For any queries regarding this email, please contact the sender " +
+            " </strong>is attached to this email. Kindly download the document from the attachment.</p></div> </div><div><p>This is an automated email from OpenSign™. For any queries regarding this email, please contact the sender " +
             sender.email +
-            " directly. If you think this email is inappropriate or spam, you may file a complaint with Open Sign here.</p></div></div></body></html>"
+            " directly. If you think this email is inappropriate or spam, you may file a complaint with OpenSign™  <a href= " +
+            openSignUrl +
+            " target=_blank>here</a> </p></div></div></body></html>"
         };
         sendMail = await axios.post(url, params, { headers: headers });
       } catch (error) {
         console.log("error", error);
         setIsLoading(false);
-        alert("Something went wrong!");
+        setIsEmail(false);
+        setIsAlert({
+          isShow: true,
+          alertMessage: "something went wrong"
+        });
       }
     }
 
-    if (sendMail.data.result.status === "success") {
-      setIsEmail(false);
+    if (sendMail && sendMail.data.result.status === "success") {
       setSuccessEmail(true);
       setTimeout(() => {
         setSuccessEmail(false);
-      }, 3000);
+        setIsEmail(false);
+        setEmailValue("");
+        setEmailList([]);
+      }, 1500);
+
       setIsLoading(false);
-    } else if (sendMail.data.result.status === "error") {
+    } else if (sendMail && sendMail.data.result.status === "error") {
       setIsLoading(false);
-      alert("Something went wrong!");
+      setIsEmail(false);
+      setIsAlert({
+        isShow: true,
+        alertMessage: "something went wrong"
+      });
+      setEmailValue("");
+      setEmailList([]);
     } else {
       setIsLoading(false);
-      alert("Something went wrong!");
+      setIsEmail(false);
+      setIsAlert({
+        isShow: true,
+        alertMessage: "something went wrong"
+      });
+      setEmailValue("");
+      setEmailList([]);
     }
   };
+
   //function for remove email
   const removeChip = (index) => {
-    const updateEmailCount = emailCount.filter((data, key) => key !== index);
-    setEmailCount(updateEmailCount);
+    const updateEmailCount = emailList.filter((data, key) => key !== index);
+    setEmailList(updateEmailCount);
   };
   //function for get email value
   const handleEmailValue = (e) => {
@@ -95,10 +114,10 @@ function EmailComponent({
   //function for save email in array after press enter
   const handleEnterPress = (e) => {
     if (e.key === "Enter" && emailValue) {
-      setEmailCount((prev) => [...prev, emailValue]);
+      setEmailList((prev) => [...prev, emailValue]);
       setEmailValue("");
     } else if (e === "add" && emailValue) {
-      setEmailCount((prev) => [...prev, emailValue]);
+      setEmailList((prev) => [...prev, emailValue]);
       setEmailValue("");
     }
   };
@@ -142,245 +161,268 @@ function EmailComponent({
   return (
     <div>
       {/* isEmail */}
-      <Modal show={isEmail}>
-        {isLoading && (
-          <div
-            style={{
-              position: "absolute",
-              height: "100%",
-              width: "100%",
-              display: "flex",
-              justifyContent: "center",
-              flexDirection: "column",
-              alignItems: "center",
-              zIndex: "20",
-              backgroundColor: "#e6f2f2",
-              opacity: 0.8
-            }}
-          >
-            <img
-              alt="no img"
-              src={loader}
-              style={{ width: "70px", height: "70px" }}
-            />
-            <span style={{ fontSize: "12px", fontWeight: "bold" }}>
-              This might take some time
-            </span>
-          </div>
-        )}
-
-        <ModalHeader style={{ background: themeColor() }}>
-          <span style={{ color: "white" }}>Successfully signed!</span>
-
-          <div style={{ display: "flex", flexDirection: "row" }}>
-            <div></div>
-            {!isAndroid && (
-              <button
-                onClick={handleToPrint}
+      {isEmail && (
+        <div className="modaloverlay">
+          <div className="modalcontainer">
+            {isLoading && (
+              <div
                 style={{
+                  position: "absolute",
+                  height: "100%",
+                  width: "100%",
                   display: "flex",
-                  flexDirection: "row",
-                  alignItems: "center"
+                  justifyContent: "center",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  zIndex: "20",
+                  backgroundColor: "#e6f2f2",
+                  opacity: 0.8
                 }}
-                className="btn btn-primary btn-sm"
               >
-                <i
-                  className="fa fa-print"
-                  style={{
-                    fontSize: "15px",
-                    marginRight: "3px",
-                    color: "white"
-                  }}
-                  aria-hidden="true"
-                ></i>
-                Print
-              </button>
+                <img
+                  alt="no img"
+                  src={loader}
+                  style={{ width: "70px", height: "70px" }}
+                />
+                <span style={{ fontSize: "12px", fontWeight: "bold" }}>
+                  This might take some time
+                </span>
+              </div>
             )}
+            <div style={{ background: "#32a3ac" }} className="modalheader">
+              <span style={{ color: "white" }}>Successfully signed!</span>
 
-            <button
-              className="btn btn-danger btn-sm"
-              onClick={() => handleDownloadPdf()}
-              style={{
-                display: "flex",
-                flexDirection: "row",
-                alignItems: "center",
-                marginLeft: "10px"
-              }}
-            >
-              <i
-                className="fa fa-download"
-                style={{
-                  color: "white",
-                  fontSize: "15px",
-                  marginRight: "3px"
-                }}
-                aria-hidden="true"
-              ></i>
-              Download
-            </button>
-          </div>
-        </ModalHeader>
+              <div style={{ display: "flex", flexDirection: "row" }}>
+                <div></div>
+                {!isAndroid && (
+                  <button
+                    onClick={handleToPrint}
+                    style={{
+                      display: "flex",
+                      flexDirection: "row",
+                      alignItems: "center"
+                    }}
+                    className="btn btn-primary btn-sm"
+                  >
+                    <i
+                      className="fa fa-print"
+                      style={{
+                        fontSize: "15px",
+                        marginRight: "3px",
+                        color: "white"
+                      }}
+                      aria-hidden="true"
+                    ></i>
+                    Print
+                  </button>
+                )}
 
-        <Modal.Body>
-          {isCeleb && (
-            <div
-              style={{
-                position: "absolute",
-                marginLeft: "50px"
-              }}
-            >
-              <img
-                alt="print img"
-                width={300}
-                height={250}
-                // style={styles.gifCeleb}
-                src={celebration}
-              />
-            </div>
-          )}
-          <p
-            style={{
-              fontFamily: "system-ui",
-              verticalAlign: "baseline",
-              fontWeight: "500",
-              color: "#403f3e",
-              fontSize: "15px"
-            }}
-          >
-            Recipients added here will get a copy of the signed document.
-          </p>
-          {emailCount.length > 0 ? (
-            <>
-              <div className="addEmail">
-                <div
+                <button
+                  className="btn btn-danger btn-sm"
+                  onClick={() => handleDownloadPdf()}
                   style={{
                     display: "flex",
                     flexDirection: "row",
-
-                    flexWrap: "wrap"
+                    alignItems: "center",
+                    marginLeft: "10px"
                   }}
                 >
-                  {emailCount.map((data, ind) => {
-                    return (
-                      <div
-                        className="emailChip"
-                        style={{
-                          display: "flex",
-                          flexDirection: "row",
-                          alignItems: "center"
-                        }}
-                        key={ind}
-                      >
-                        <span
-                          style={{
-                            color: "white",
-                            fontSize: "13px"
-                          }}
-                        >
-                          {data}
-                        </span>
-
-                        <img
-                          alt="print img"
-                          onClick={() => removeChip(ind)}
-                          src={close}
-                          width={10}
-                          height={10}
-                          style={{ fontWeight: "600", marginLeft: "7px" }}
-                          className="emailChipClose"
-                        />
-                      </div>
-                    );
-                  })}
+                  <i
+                    className="fa fa-download"
+                    style={{
+                      color: "white",
+                      fontSize: "15px",
+                      marginRight: "3px"
+                    }}
+                    aria-hidden="true"
+                  ></i>
+                  Download
+                </button>
+              </div>
+            </div>
+            <div style={{ height: "100%", padding: 20 }}>
+              {isCeleb && (
+                <div
+                  style={{
+                    position: "absolute",
+                    marginLeft: "50px"
+                  }}
+                >
+                  <img
+                    alt="print img"
+                    width={300}
+                    height={250}
+                    // style={styles.gifCeleb}
+                    src={celebration}
+                  />
                 </div>
-                {emailCount.length <= 9 && (
+              )}
+              <p
+                style={{
+                  fontFamily: "system-ui",
+                  verticalAlign: "baseline",
+                  fontWeight: "500",
+                  color: "#403f3e",
+                  fontSize: "15px",
+                  marginBottom: "5px"
+                }}
+              >
+                Recipients added here will get a copy of the signed document.
+              </p>
+              {emailList.length > 0 ? (
+                <>
+                  <div className="addEmail">
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "row",
+
+                        flexWrap: "wrap"
+                      }}
+                    >
+                      {emailList.map((data, ind) => {
+                        return (
+                          <div
+                            className="emailChip"
+                            style={{
+                              display: "flex",
+                              flexDirection: "row",
+                              alignItems: "center"
+                            }}
+                            key={ind}
+                          >
+                            <span
+                              style={{
+                                color: "white",
+                                fontSize: "13px"
+                              }}
+                            >
+                              {data}
+                            </span>
+                            <span
+                              style={{
+                                color: "white",
+                                fontSize: 13,
+                                fontWeight: 600,
+                                marginLeft: 7,
+                                cursor: "pointer"
+                              }}
+                              onClick={() => removeChip(ind)}
+                            >
+                              <i className="fa-solid fa-xmark"></i>
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {emailList.length <= 9 && (
+                      <input
+                        type="text"
+                        value={emailValue}
+                        className="addEmailInput"
+                        onChange={handleEmailValue}
+                        onKeyDown={handleEnterPress}
+                        onBlur={() => {
+                          if (emailValue) {
+                            handleEnterPress("add");
+                          }
+                        }}
+                        required
+                      />
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div>
                   <input
                     type="text"
                     value={emailValue}
-                    className="addEmailInput"
+                    className="emailInput"
                     onChange={handleEmailValue}
                     onKeyDown={handleEnterPress}
+                    placeholder="Add the email addresses"
+                    onBlur={() => {
+                      if (emailValue) {
+                        handleEnterPress("add");
+                      }
+                    }}
                     required
                   />
-                )}
+                </div>
+              )}
+              <span
+                style={{
+                  cursor: emailValue && "pointer"
+                }}
+                onClick={() => {
+                  if (emailValue) {
+                    handleEnterPress("add");
+                  }
+                }}
+              >
+                <i
+                  style={{
+                    backgroundColor: themeColor(),
+                    padding: "5px 7px",
+                    marginTop: "10px",
+                    color: "white",
+                    borderRadius: "2px"
+                  }}
+                  className="fa fa-plus"
+                  aria-hidden="true"
+                ></i>
+              </span>
+
+              <div
+                style={{
+                  background: "#e3e2e1",
+                  marginTop: "10px",
+                  padding: "5px",
+                  borderRadius: "3px"
+                }}
+              >
+                <span style={{ fontWeight: "700" }}>Note:</span>
+                <span style={{ fontSize: "15px" }}>
+                  {" "}
+                  You can only send to ten recipients at a time.
+                </span>
               </div>
-            </>
-          ) : (
-            <div>
-              <input
-                type="text"
-                value={emailValue}
-                className="emailInput"
-                onChange={handleEmailValue}
-                onKeyDown={handleEnterPress}
-                placeholder="Add the email addresses"
-                required
-              />
+              <div
+                style={{
+                  height: "1px",
+                  backgroundColor: "#9f9f9f",
+                  width: "100%",
+                  marginTop: "15px",
+                  marginBottom: "15px"
+                }}
+              ></div>
+              <button
+                disabled={emailList.length === 0 && true}
+                style={{
+                  background: themeColor(),
+                  color: "white"
+                }}
+                type="button"
+                className={emailList.length === 0 ? "defaultBtn" : "finishBtn"}
+                onClick={() => sendEmail()}
+              >
+                Send
+              </button>
+              <button
+                type="button"
+                className="finishBtn cancelBtn"
+                onClick={() => {
+                  setIsEmail(false);
+                  setEmailValue("");
+                  setEmailList([]);
+                }}
+              >
+                Close
+              </button>
             </div>
-          )}
-          <span
-            style={{
-              cursor: emailValue && "pointer"
-            }}
-            onClick={() => {
-              if (emailValue) {
-                handleEnterPress("add");
-              }
-            }}
-          >
-            <i
-              style={{
-                backgroundColor: themeColor(),
-                padding: "2px 10px",
-                marginTop: "10px",
-                color: "white"
-              }}
-              className="fa fa-plus"
-              aria-hidden="true"
-            ></i>
-          </span>
-
-          <div
-            style={{
-              background: "#e3e2e1",
-              marginTop: "30px",
-              padding: "5px",
-              borderRadius: "3px"
-            }}
-          >
-            <span style={{ fontWeight: "700" }}>Note:</span>
-            <span style={{ fontSize: "15px" }}>
-              {" "}
-              You can only send to ten recipients at a time.
-            </span>
           </div>
-        </Modal.Body>
-
-        <Modal.Footer>
-          <button
-            style={{
-              color: "black"
-            }}
-            type="button"
-            className="finishBtn"
-            onClick={() => setIsEmail(false)}
-          >
-            Close
-          </button>
-          <button
-            disabled={emailCount.length === 0 && true}
-            style={{
-              background: themeColor(),
-              color: "white"
-            }}
-            type="button"
-            className={emailCount.length === 0 ? "defaultBtn" : "finishBtn"}
-            onClick={() => sendEmail()}
-          >
-            Send
-          </button>
-        </Modal.Footer>
-      </Modal>
+        </div>
+      )}
     </div>
   );
 }

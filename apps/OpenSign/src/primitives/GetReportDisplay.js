@@ -2,9 +2,11 @@ import React, { useState, useEffect, useMemo } from "react";
 import pad from "../assets/images/pad.svg";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import "../styles/report.css";
 import ModalUi from "./ModalUi";
-import AppendFormInForm from "../components/AppendFormInForm";
+import AddSigner from "../components/AddSigner";
+import { modalSubmitBtnColor, modalCancelBtnColor } from "../constant/const";
+import Alert from "./Alert";
+import Tooltip from "./Tooltip";
 const ReportTable = ({
   ReportName,
   List,
@@ -14,7 +16,8 @@ const ReportTable = ({
   setIsNextRecord,
   isMoreDocs,
   docPerPage,
-  form
+  form,
+  report_help
 }) => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
@@ -66,7 +69,7 @@ const ReportTable = ({
   const handlemicroapp = async (item, url, btnLabel) => {
     if (ReportName === "Templates") {
       if (btnLabel === "Edit") {
-        navigate(`/asmf/${url}/${item.objectId}`);
+        navigate(`/${url}/${item.objectId}`);
       } else {
         setActLoader({ [`${item.objectId}_${btnLabel}`]: true });
         try {
@@ -148,7 +151,8 @@ const ReportTable = ({
                 if (res.data && res.data.objectId) {
                   setActLoader({});
                   setIsAlert(true);
-                  navigate(`/asmf/${url}/${res.data.objectId}`, {
+                  setTimeout(() => setIsAlert(false), 1500);
+                  navigate(`/${url}/${res.data.objectId}`, {
                     state: { title: "Use Template" }
                   });
                 }
@@ -156,6 +160,7 @@ const ReportTable = ({
                 console.log("Err", err);
                 setIsAlert(true);
                 setIsErr(true);
+                setTimeout(() => setIsAlert(false), 1500);
                 setActLoader({});
               }
             } else {
@@ -165,18 +170,20 @@ const ReportTable = ({
           } else {
             setIsAlert(true);
             setIsErr(true);
+            setTimeout(() => setIsAlert(false), 1500);
             setActLoader({});
           }
         } catch (err) {
           console.log("err", err);
           setIsAlert(true);
           setIsErr(true);
+          setTimeout(() => setIsAlert(false), 1500);
           setActLoader({});
         }
       }
     } else {
       localStorage.removeItem("rowlevel");
-      navigate("/rpmf/" + url);
+      navigate(`/${url}`);
       localStorage.setItem("rowlevel", JSON.stringify(item));
     }
 
@@ -210,13 +217,15 @@ const ReportTable = ({
     setIsDeleteModal({});
     setActLoader({ [item.objectId]: true });
     try {
-      const url =
-        process.env.REACT_APP_SERVERURL + "/classes/contracts_Contactbook/";
+      const serverUrl = process.env.REACT_APP_SERVERURL
+        ? process.env.REACT_APP_SERVERURL
+        : window.location.origin + "/api/app";
+      const url = serverUrl + "/classes/contracts_Contactbook/";
       const body = { IsDeleted: true };
       const res = await axios.put(url + item.objectId, body, {
         headers: {
           "Content-Type": "application/json",
-          "X-Parse-Application-Id": localStorage.getItem("AppID12"),
+          "X-Parse-Application-Id": localStorage.getItem("parseAppId"),
           "X-Parse-Session-Token": localStorage.getItem("accesstoken")
         }
       });
@@ -224,6 +233,7 @@ const ReportTable = ({
       if (res.data && res.data.updatedAt) {
         setActLoader({});
         setIsAlert(true);
+        setTimeout(() => setIsAlert(false), 1500);
         const upldatedList = List.filter((x) => x.objectId !== item.objectId);
         setList(upldatedList);
       }
@@ -231,6 +241,7 @@ const ReportTable = ({
       console.log("err", err);
       setIsAlert(true);
       setIsErr(true);
+      setTimeout(() => setIsAlert(false), 1500);
       setActLoader({});
     }
   };
@@ -239,19 +250,21 @@ const ReportTable = ({
   return (
     <div className="p-2 overflow-x-scroll w-full bg-white rounded-md">
       {isAlert && (
-        <div
-          className={`alert alert-${isErr ? "danger" : "success"} alertBox`}
-          role="alert"
-          onAnimationEnd={() => setIsAlert(false)}
-        >
+        <Alert type={isErr ? "danger" : "success"}>
           {isErr
             ? "Something went wrong, Please try again later!"
             : "Record deleted successfully!"}
-        </div>
+        </Alert>
       )}
-
       <div className="flex flex-row items-center justify-between my-2 mx-3 text-[20px] md:text-[23px]">
-        <div className="font-light">{ReportName}</div>
+        <div className="font-light">
+          {ReportName}{" "}
+          {report_help && (
+            <span className="text-xs md:text-[13px] font-normal">
+              <Tooltip message={report_help} />
+            </span>
+          )}
+        </div>
         {ReportName === "Templates" && (
           <i
             onClick={() => navigate("/form/template")}
@@ -342,13 +355,15 @@ const ReportTable = ({
                             <div className="flex items-center mt-3 gap-2 text-white">
                               <button
                                 onClick={() => handleDelete(item)}
-                                className="bg-[#1ab6ce] rounded-sm shadow-md text-[12px] font-semibold uppercase text-white py-1.5 px-3 focus:outline-none"
+                                className="px-4 py-1.5 text-white rounded shadow-md text-center focus:outline-none "
+                                style={{ backgroundColor: modalSubmitBtnColor }}
                               >
                                 Yes
                               </button>
                               <button
                                 onClick={handleCloseDeleteModal}
-                                className="bg-[#188ae2] rounded-sm shadow-md text-[12px] font-semibold uppercase text-white py-1.5 px-3 text-center ml-[2px] focus:outline-none"
+                                className="px-4 py-1.5 text-black border-[1px] border-[#ccc] shadow-md rounded focus:outline-none"
+                                style={{ backgroundColor: modalCancelBtnColor }}
                               >
                                 No
                               </button>
@@ -371,7 +386,7 @@ const ReportTable = ({
                     )}
                     {heading.includes("Folder") && (
                       <td className="px-4 py-2">
-                        {item?.Folder?.Name || "OpenSignDrive"}
+                        {item?.Folder?.Name || "OpenSign™ Drive"}
                       </td>
                     )}
                     <td className="px-4 py-2">
@@ -492,7 +507,7 @@ const ReportTable = ({
         isOpen={isContactform}
         handleClose={handleContactFormModal}
       >
-        <AppendFormInForm
+        <AddSigner
           handleUserData={handleUserData}
           closePopup={handleContactFormModal}
         />

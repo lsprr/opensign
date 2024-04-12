@@ -4,25 +4,34 @@ import FullScreenButton from "./FullScreenButton";
 import { useNavigate } from "react-router-dom";
 import Parse from "parse";
 import { useWindowSize } from "../hook/useWindowSize";
+import { checkIsSubscribed, openInNewTab } from "../constant/Utils";
+import { isEnableSubscription } from "../constant/const";
+
 const Header = ({ showSidebar }) => {
-  const navigation = useNavigate();
+  const navigate = useNavigate();
   const { width } = useWindowSize();
   let applogo = localStorage.getItem("appLogo") || "";
   let username = localStorage.getItem("username");
   const image = localStorage.getItem("profileImg") || dp;
-  const [parseBaseUrl] = useState(localStorage.getItem("baseUrl"));
-  const [parseAppId] = useState(localStorage.getItem("parseAppId"));
 
   const [isOpen, setIsOpen] = useState(false);
+  const [isSubscribe, setIsSubscribe] = useState(true);
 
   const toggleDropdown = () => {
     setIsOpen(!isOpen);
   };
-
+  useEffect(() => {
+    checkSubscription();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  async function checkSubscription() {
+    if (isEnableSubscription) {
+      const getIsSubscribe = await checkIsSubscribed();
+      setIsSubscribe(getIsSubscribe);
+    }
+  }
   const closeDropdown = () => {
     setIsOpen(false);
-    Parse.serverURL = parseBaseUrl;
-    Parse.initialize(parseAppId);
     Parse.User.logOut();
     let appdata = localStorage.getItem("userSettings");
     let applogo = localStorage.getItem("appLogo");
@@ -31,8 +40,8 @@ const Header = ({ showSidebar }) => {
     let PageLanding = localStorage.getItem("PageLanding");
     let domain = localStorage.getItem("domain");
     let _appName = localStorage.getItem("_appName");
-    let baseUrl = localStorage.getItem("BaseUrl12");
-    let appid = localStorage.getItem("AppID12");
+    let baseUrl = localStorage.getItem("baseUrl");
+    let appid = localStorage.getItem("parseAppId");
 
     localStorage.clear();
 
@@ -43,10 +52,10 @@ const Header = ({ showSidebar }) => {
     localStorage.setItem("PageLanding", PageLanding);
     localStorage.setItem("domain", domain);
     localStorage.setItem("userSettings", appdata);
-    localStorage.setItem("BaseUrl12", baseUrl);
-    localStorage.setItem("AppID12", appid);
+    localStorage.setItem("baseUrl", baseUrl);
+    localStorage.setItem("parseAppId", appid);
 
-    navigation("/");
+    navigate("/");
   };
 
   //handle to close profile drop down menu onclick screen
@@ -86,6 +95,16 @@ const Header = ({ showSidebar }) => {
         id="profile-menu"
         className="flex justify-between items-center gap-x-3"
       >
+        {!isSubscribe && (
+          <div>
+            <button
+              className="text-xs bg-[#002864] p-2 text-white rounded shadow"
+              onClick={() => navigate("/subscription")}
+            >
+              Upgrade Now
+            </button>
+          </div>
+        )}
         <div>
           <FullScreenButton />
         </div>
@@ -118,9 +137,15 @@ const Header = ({ showSidebar }) => {
             <ul>
               <li
                 className="hover:bg-gray-100 rounded-t-lg py-1 px-2 cursor-pointer font-normal"
+                onClick={() => openInNewTab("https://docs.opensignlabs.com")}
+              >
+                <i className="fa-solid fa-book"></i> Docs
+              </li>
+              <li
+                className="hover:bg-gray-100 py-1 px-2 cursor-pointer font-normal"
                 onClick={() => {
                   setIsOpen(false);
-                  navigation("/profile");
+                  navigate("/profile");
                 }}
               >
                 <i className="fa-regular fa-user"></i> Profile
@@ -129,7 +154,7 @@ const Header = ({ showSidebar }) => {
                 className="hover:bg-gray-100 py-1 px-2 cursor-pointer font-normal"
                 onClick={() => {
                   setIsOpen(false);
-                  navigation("/changepassword");
+                  navigate("/changepassword");
                 }}
               >
                 <i className="fa-solid fa-lock"></i> Change Password

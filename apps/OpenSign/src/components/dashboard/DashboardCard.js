@@ -4,6 +4,7 @@ import Parse from "parse";
 import getReplacedHashQuery from "../../constant/getReplacedHashQuery";
 import "../../styles/loader.css";
 import { useNavigate } from "react-router-dom";
+import Tooltip from "../../primitives/Tooltip";
 
 const DashboardCard = (props) => {
   const navigate = useNavigate();
@@ -24,9 +25,6 @@ const DashboardCard = (props) => {
         };
         let body = {};
         let currentUser;
-
-        Parse.serverURL = parseBaseUrl;
-        Parse.initialize(parseAppId);
         let currentUser1 = Parse.User.current();
         currentUser = currentUser1.id;
         let res;
@@ -82,8 +80,6 @@ const DashboardCard = (props) => {
     } else {
       setLoading(true);
       try {
-        Parse.serverURL = parseBaseUrl;
-        Parse.initialize(parseAppId);
         const currentUser = Parse.User.current();
         let reg1 = /(\#.*?\#)/gi; // eslint-disable-line
         let _query = props.Data.query;
@@ -223,8 +219,6 @@ const DashboardCard = (props) => {
 
         if (restr.includes("#")) {
           try {
-            Parse.serverURL = parseBaseUrl;
-            Parse.initialize(parseAppId);
             const currentUser = Parse.User.current();
             let res;
             if (localStorage.getItem("Extand_Class")) {
@@ -342,7 +336,7 @@ const DashboardCard = (props) => {
         props.Data && props.Data.Redirect_type
           ? "cursor-pointer"
           : "cursor-default"
-      } w-full h-[140px] px-3 pt-4 pb-10 text-white rounded-md shadow overflow-hidden`}
+      } w-full h-[140px] px-3 pt-4 pb-10 text-white rounded-md shadow overflow-hidden relative`}
     >
       <div className="flex items-center justify-start gap-5">
         <span className="rounded-full bg-black bg-opacity-20 w-[60px] h-[60px]  self-start flex justify-center items-center">
@@ -358,6 +352,9 @@ const DashboardCard = (props) => {
             {loading ? <div className="loader-01"></div> : setFormat(response)}
           </div>
         </div>
+      </div>
+      <div className="text-xs absolute top-2 right-1">
+        <Tooltip id={props.Label} iconColor={"white"} message={props?.Data?.tourMessage} />
       </div>
     </div>
   );

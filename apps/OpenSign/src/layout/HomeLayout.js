@@ -8,14 +8,22 @@ import axios from "axios";
 import { useSelector } from "react-redux";
 import Parse from "parse";
 import ModalUi from "../primitives/ModalUi";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation, Outlet } from "react-router-dom";
+import { isEnableSubscription } from "../constant/const";
 
-const HomeLayout = ({ children }) => {
+const HomeLayout = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { width } = useWindowSize();
   const [isOpen, setIsOpen] = useState(true);
   const arr = useSelector((state) => state.TourSteps);
   const [isUserValid, setIsUserValid] = useState(true);
+  const [isLoader, setIsLoader] = useState(true);
+  // reactour state
+  const [isCloseBtn, setIsCloseBtn] = useState(true);
+  const [isTour, setIsTour] = useState(false);
+  const [tourStatusArr, setTourStatusArr] = useState([]);
+  const [tourConfigs, setTourConfigs] = useState([]);
 
   useEffect(() => {
     (async () => {
@@ -26,7 +34,7 @@ const HomeLayout = ({ children }) => {
           sessionToken: localStorage.getItem("accesstoken")
         });
         if (user) {
-          setIsUserValid(true);
+          checkIsSubscribed();
         } else {
           setIsUserValid(false);
         }
@@ -35,14 +43,36 @@ const HomeLayout = ({ children }) => {
         setIsUserValid(false);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // reactour state
-  const [isCloseBtn, setIsCloseBtn] = useState(true);
-  const [isTour, setIsTour] = useState(false);
-  const [tourStatusArr, setTourStatusArr] = useState([]);
-  const [tourConfigs, setTourConfigs] = useState([]);
-
+  async function checkIsSubscribed() {
+    const currentUser = Parse.User.current();
+    const user = await Parse.Cloud.run("getUserDetails", {
+      email: currentUser.get("email")
+    });
+    if (isEnableSubscription) {
+      const freeplan = user?.get("Plan") && user?.get("Plan").plan_code;
+      const billingDate =
+        user?.get("Next_billing_date") && user?.get("Next_billing_date");
+      if (freeplan === "freeplan") {
+        setIsUserValid(true);
+        setIsLoader(false);
+      } else if (billingDate) {
+        if (billingDate > new Date()) {
+          setIsUserValid(true);
+          setIsLoader(false);
+        } else {
+          navigate(`/subscription`);
+        }
+      } else {
+        navigate(`/subscription`);
+      }
+    } else {
+      setIsUserValid(true);
+      setIsLoader(false);
+    }
+  }
   const showSidebar = () => {
     setIsOpen((value) => !value);
   };
@@ -92,10 +122,16 @@ const HomeLayout = ({ children }) => {
           position: "top"
           // style: { backgroundColor: "#abd4d2" },
         },
+        {
+          selector: '[data-tut="tourbutton"]',
+          content: `To upload documents for self-signing or to request others’ signatures, simply select the respective buttons.`,
+          position: "top"
+          // style: { backgroundColor: "#abd4d2" },
+        },
         ...resArr,
         {
           selector: '[data-tut="reactourLast"]',
-          content: `You are good to go`,
+          content: `You are ready to start using OpenSign! If you need support feel free to contact us.`,
           position: "top"
           // style: { backgroundColor: "#abd4d2" },
         }
@@ -108,7 +144,7 @@ const HomeLayout = ({ children }) => {
     // console.log("closeTour");
     setIsTour(false);
     const serverUrl = localStorage.getItem("baseUrl");
-    const appId = localStorage.getItem("AppID12");
+    const appId = localStorage.getItem("parseAppId");
     const extUserClass = localStorage.getItem("extended_class");
     const json = JSON.parse(localStorage.getItem("Extand_Class"));
     const extUserId = json && json.length > 0 && json[0].objectId;
@@ -184,37 +220,60 @@ const HomeLayout = ({ children }) => {
       console.log("err ", err);
     } finally {
       localStorage.removeItem("accesstoken");
-      navigate("/", { replace: true });
+      navigate("/", { replace: true, state: { from: location } });
     }
   };
   return (
     <div>
       <div className="sticky top-0 z-50">
-        <Header showSidebar={showSidebar} />
+        {!isLoader && <Header showSidebar={showSidebar} />}
       </div>
       {isUserValid ? (
         <>
-          <div className="flex md:flex-row flex-col z-50">
-            <Sidebar isOpen={isOpen} closeSidebar={closeSidebar} />
-
-            <div className="relative h-screen flex flex-col justify-between w-full overflow-y-auto">
-              <div className="bg-[#eef1f5] p-3">{children}</div>
-              <div className="z-30">
-                <Footer />
-              </div>
+          {isLoader ? (
+            <div
+              style={{
+                height: "100vh",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center"
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "45px",
+                  color: "#3dd3e0"
+                }}
+                className="loader-37"
+              ></div>
             </div>
-          </div>
-          <Tour
-            onRequestClose={closeTour}
-            steps={tourConfigs}
-            isOpen={isTour}
-            closeWithMask={false}
-            disableKeyboardNavigation={["esc"]}
-            // disableInteraction={true}
-            scrollOffset={-100}
-            rounded={5}
-            showCloseButton={isCloseBtn}
-          />
+          ) : (
+            <>
+              <div className="flex md:flex-row flex-col z-50">
+                <Sidebar isOpen={isOpen} closeSidebar={closeSidebar} />
+                <div
+                  id="renderList"
+                  className="relative h-screen flex flex-col justify-between w-full overflow-y-auto"
+                >
+                  <div className="bg-[#eef1f5] p-3">{<Outlet />}</div>
+                  <div className="z-30">
+                    <Footer />
+                  </div>
+                </div>
+              </div>
+              <Tour
+                onRequestClose={closeTour}
+                steps={tourConfigs}
+                isOpen={isTour}
+                closeWithMask={false}
+                disableKeyboardNavigation={["esc"]}
+                // disableInteraction={true}
+                scrollOffset={-100}
+                rounded={5}
+                showCloseButton={isCloseBtn}
+              />
+            </>
+          )}
         </>
       ) : (
         <ModalUi title={"Session Expired"} isOpen={true} showClose={false}>

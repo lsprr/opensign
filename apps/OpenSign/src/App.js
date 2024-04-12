@@ -1,22 +1,55 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy } from "react";
 import { Routes, Route, BrowserRouter } from "react-router-dom";
-import Pgsignup from "./routes/Pgsignup";
-import Login from "./routes/Login";
-import Microapp from "./routes/RemoteApp";
-import Signup from "./routes/Signup";
-import Form from "./routes/Form";
-import Report from "./routes/Report";
-import Dashboard from "./routes/Dashboard";
-import PlanSubscriptions from "./routes/PlanSubscriptions";
+import { pdfjs } from "react-pdf";
+import Login from "./pages/Login";
+import Form from "./pages/Form";
+import Report from "./pages/Report";
+import Dashboard from "./pages/Dashboard";
 import HomeLayout from "./layout/HomeLayout";
-import UserProfile from "./routes/UserProfile";
-import PageNotFound from "./routes/PageNotFound";
-import ForgetPassword from "./routes/ForgetPassword";
-import ChangePassword from "./routes/ChangePassword";
-import ReportMicroapp from "./components/ReportMicroapp";
-import LoadMf from "./routes/LoadMf";
+import PageNotFound from "./pages/PageNotFound";
 import ValidateRoute from "./primitives/ValidateRoute";
+import Validate from "./primitives/Validate";
+import TemplatePlaceholder from "./pages/TemplatePlaceholder";
+import SignYourSelf from "./pages/SignyourselfPdf";
+import DraftDocument from "./components/pdf/DraftDocument";
+import PlaceHolderSign from "./pages/PlaceHolderSign";
+import PdfRequestFiles from "./pages/PdfRequestFiles";
+import LazyPage from "./primitives/LazyPage";
+import { isEnableSubscription } from "./constant/const";
+const DebugPdf = lazy(() => import("./pages/DebugPdf"));
+const ForgetPassword = lazy(() => import("./pages/ForgetPassword"));
+const GuestLogin = lazy(() => import("./pages/GuestLogin"));
+const Pgsignup = lazy(() => import("./pages/Pgsignup"));
+const Subscriptions = lazy(() => import("./pages/PlanSubscriptions"));
+const ChangePassword = lazy(() => import("./pages/ChangePassword"));
+const UserProfile = lazy(() => import("./pages/UserProfile"));
+const Signup = lazy(() => import("./pages/Signup"));
+const Opensigndrive = lazy(() => import("./pages/Opensigndrive"));
+const ManageSign = lazy(() => import("./pages/Managesign"));
+const GenerateToken = lazy(() => import("./pages/GenerateToken"));
+const Webhook = lazy(() => import("./pages/Webhook"));
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
 
+const Loader = () => {
+  return (
+    <div
+      style={{
+        height: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center"
+      }}
+    >
+      <div
+        style={{
+          fontSize: "45px",
+          color: "#3dd3e0"
+        }}
+        className="loader-37"
+      ></div>
+    </div>
+  );
+};
 function App() {
   const [isloading, setIsLoading] = useState(true);
   useEffect(() => {
@@ -24,12 +57,16 @@ function App() {
   }, []);
 
   const handleCredentials = () => {
-    const appId = process.env.REACT_APP_APPID;
-    const baseurl = process.env.REACT_APP_SERVERURL;
+    const appId = process.env.REACT_APP_APPID
+      ? process.env.REACT_APP_APPID
+      : "opensign";
+    const baseurl = process.env.REACT_APP_SERVERURL
+      ? process.env.REACT_APP_SERVERURL
+      : window.location.origin + "/api/app";
     const appName = "contracts";
     try {
-      localStorage.setItem("BaseUrl12", `${baseurl}/`);
-      localStorage.setItem("AppID12", appId);
+      localStorage.setItem("baseUrl", `${baseurl}/`);
+      localStorage.setItem("parseAppId", appId);
       localStorage.setItem("domain", appName);
       setIsLoading(false);
     } catch (error) {
@@ -40,123 +77,107 @@ function App() {
   return (
     <div className="bg-[#eef1f5]">
       {isloading ? (
-        <div
-          style={{
-            height: "100vh",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center"
-          }}
-        >
-          <div
-            style={{
-              fontSize: "45px",
-              color: "#3dd3e0"
-            }}
-            className="loader-37"
-          ></div>
-        </div>
+        <Loader />
       ) : (
         <BrowserRouter>
           <Routes>
+            <Route element={<ValidateRoute />}>
+              <Route exact path="/" element={<Login />} />
+              <Route path="/signup" element={<LazyPage Page={Signup} />} />
+            </Route>
+            <Route element={<Validate />}>
+              <Route
+                path="/load/template/:templateId"
+                element={<TemplatePlaceholder />}
+              />
+              <Route
+                exact
+                path="/load/placeholdersign/:docId"
+                element={<PlaceHolderSign />}
+              />
+              <Route
+                exact
+                path="/load/recipientSignPdf/:docId/:contactBookId"
+                element={<PdfRequestFiles />}
+              />
+            </Route>
             <Route
-              exact
-              path="/"
-              element={
-                <ValidateRoute>
-                  <Login />
-                </ValidateRoute>
-              }
+              path="/loadmf/signmicroapp/login/:id/:userMail/:contactBookId/:serverUrl"
+              element={<LazyPage Page={GuestLogin} />}
             />
             <Route
-              exact
-              path="/signup"
-              element={
-                <ValidateRoute>
-                  <Signup />
-                </ValidateRoute>
-              }
+              path="/login/:id/:userMail/:contactBookId/:serverUrl"
+              element={<LazyPage Page={GuestLogin} />}
             />
-            <Route exact path="/loadmf/:remoteApp/*" element={<LoadMf />} />
-            <Route exact path="/forgetpassword" element={<ForgetPassword />} />
-            {process.env.REACT_APP_ENABLE_SUBSCRIPTION && (
+            <Route path="/debugpdf" element={<LazyPage Page={DebugPdf} />} />
+            <Route
+              path="/forgetpassword"
+              element={<LazyPage Page={ForgetPassword} />}
+            />
+            {isEnableSubscription && (
               <>
-                <Route exact path="/pgsignup" element={<Pgsignup />} />
                 <Route
-                  exact
+                  path="/pgsignup"
+                  element={<LazyPage Page={Pgsignup} />}
+                />
+                <Route
                   path="/subscription"
-                  element={<PlanSubscriptions />}
+                  element={<LazyPage Page={Subscriptions} />}
                 />
               </>
             )}
-            <Route
-              exact
-              path="/changepassword"
-              element={
-                <HomeLayout>
-                  <ChangePassword />
-                </HomeLayout>
-              }
-            />
-            <Route
-              path="/mf/:remoteApp/*"
-              element={
-                <HomeLayout>
-                  <Microapp />
-                </HomeLayout>
-              }
-            />
-            <Route
-              path="/asmf/:remoteApp/*"
-              element={
-                <HomeLayout>
-                  <Microapp />
-                </HomeLayout>
-              }
-            />
-            <Route
-              path="/rpmf/:remoteApp/*"
-              element={
-                <HomeLayout>
-                  <ReportMicroapp />
-                </HomeLayout>
-              }
-            />
-            <Route
-              path="/form/:id"
-              element={
-                <HomeLayout>
-                  <Form />
-                </HomeLayout>
-              }
-            />
-            <Route
-              path="/report/:id"
-              element={
-                <HomeLayout>
-                  <Report />
-                </HomeLayout>
-              }
-            />
-            <Route
-              path="/dashboard/:id"
-              element={
-                <HomeLayout>
-                  <Dashboard />
-                </HomeLayout>
-              }
-            />
-
-            <Route
-              path="/profile"
-              element={
-                <HomeLayout>
-                  <UserProfile />
-                </HomeLayout>
-              }
-            />
+            <Route element={<HomeLayout />}>
+              <Route
+                path="/changepassword"
+                element={<LazyPage Page={ChangePassword} />}
+              />
+              <Route path="/form/:id" element={<Form />} />
+              <Route path="/report/:id" element={<Report />} />
+              <Route path="/dashboard/:id" element={<Dashboard />} />
+              <Route
+                path="/profile"
+                element={<LazyPage Page={UserProfile} />}
+              />
+              <Route
+                path="/opensigndrive"
+                element={<LazyPage Page={Opensigndrive} />}
+              />
+              <Route
+                path="/managesign"
+                element={<LazyPage Page={ManageSign} />}
+              />
+              <Route
+                path="/generatetoken"
+                element={<LazyPage Page={GenerateToken} />}
+              />
+              <Route path="/webhook" element={<LazyPage Page={Webhook} />} />
+              <Route
+                path="/template/:templateId"
+                element={<TemplatePlaceholder />}
+              />
+              {/* signyouself route with no rowlevel data using docId from url */}
+              <Route path="/signaturePdf/:docId" element={<SignYourSelf />} />
+              {/* draft document route to handle and navigate route page accordiing to document status */}
+              <Route path="/draftDocument" element={<DraftDocument />} />
+              {/* recipient placeholder set route with no rowlevel data using docId from url*/}
+              <Route
+                path="/placeHolderSign/:docId"
+                element={<PlaceHolderSign />}
+              />
+              {/* for user signature (need your sign route) with row level data */}
+              <Route path="/pdfRequestFiles" element={<PdfRequestFiles />} />
+              {/* for user signature (need your sign route) with no row level data */}
+              <Route
+                path="/pdfRequestFiles/:docId"
+                element={<PdfRequestFiles />}
+              />
+              {/* recipient signature route with no rowlevel data using docId from url */}
+              <Route
+                path="/recipientSignPdf/:docId/:contactBookId"
+                element={<PdfRequestFiles />}
+              />
+            </Route>
             <Route path="*" element={<PageNotFound />} />
-            {/* <Route exact path="/ForgotPassword" element={<ForgotPassword />} /> */}
           </Routes>
         </BrowserRouter>
       )}

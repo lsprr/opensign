@@ -1,7 +1,9 @@
 import React, { useState, useRef } from "react";
 import Parse from "parse";
-import jwtDecode from "jwt-decode";
+import { jwtDecode } from "jwt-decode";
 import { useScript } from "../hook/useScript";
+import ModalUi from "../primitives/ModalUi";
+import { modalCancelBtnColor, modalSubmitBtnColor } from "../constant/const";
 
 /*
  * `GoogleSignInBtn`as it's name indicates it render google sign in button
@@ -46,8 +48,8 @@ const GoogleSignInBtn = ({
     if (Parse.User.current()) {
       await Parse.User.logOut();
     }
-    let baseUrl = localStorage.getItem("BaseUrl12");
-    let appid = localStorage.getItem("AppID12");
+    let baseUrl = localStorage.getItem("baseUrl");
+    let appid = localStorage.getItem("parseAppId");
     let applogo = localStorage.getItem("appLogo");
     let domain = localStorage.getItem("domain");
     let appversion = localStorage.getItem("appVersion");
@@ -61,8 +63,8 @@ const GoogleSignInBtn = ({
 
     localStorage.clear();
 
-    localStorage.setItem("BaseUrl12", baseUrl);
-    localStorage.setItem("AppID12", appid);
+    localStorage.setItem("baseUrl", baseUrl);
+    localStorage.setItem("parseAppId", appid);
     localStorage.setItem("appLogo", applogo);
     localStorage.setItem("domain", domain);
     localStorage.setItem("appversion", appversion);
@@ -189,8 +191,8 @@ const GoogleSignInBtn = ({
     let PageLanding = localStorage.getItem("PageLanding");
     let domain = localStorage.getItem("domain");
     let _appName = localStorage.getItem("_appName");
-    let baseUrl = localStorage.getItem("BaseUrl12");
-    let appid = localStorage.getItem("AppID12");
+    let baseUrl = localStorage.getItem("baseUrl");
+    let appid = localStorage.getItem("parseAppId");
 
     localStorage.clear();
 
@@ -201,8 +203,8 @@ const GoogleSignInBtn = ({
     localStorage.setItem("PageLanding", PageLanding);
     localStorage.setItem("domain", domain);
     localStorage.setItem("userSettings", appdata);
-    localStorage.setItem("BaseUrl12", baseUrl);
-    localStorage.setItem("AppID12", appid);
+    localStorage.setItem("baseUrl", baseUrl);
+    localStorage.setItem("parseAppId", appid);
   };
   return (
     <div style={{ position: "relative" }}>
@@ -231,118 +233,94 @@ const GoogleSignInBtn = ({
         </div>
       )}
       <div ref={googleBtn} className="text-sm"></div>
-
-      {isModal && (
-        <div
-          className="modal fade show"
-          id="exampleModal"
-          tabIndex="-1"
-          role="dialog"
-          style={{ display: "block", zIndex: 1 }}
-        >
-          <div className="modal-dialog" role="document">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">Sign up form</h5>
-                <span>
-                  <span></span>
-                </span>
-              </div>
-              <div className="modal-body">
-                <form>
-                  <div className="form-group">
-                    <label
-                      htmlFor="Phone"
-                      style={{ display: "flex" }}
-                      className="col-form-label"
-                    >
-                      Phone{" "}
-                      <span style={{ fontSize: 13, color: "red" }}>*</span>
-                    </label>
-                    <input
-                      type="tel"
-                      className="form-control"
-                      id="Phone"
-                      value={userDetails.Phone}
-                      onChange={(e) =>
-                        setUserDetails({
-                          ...userDetails,
-                          Phone: e.target.value
-                        })
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label
-                      htmlFor="Company"
-                      style={{ display: "flex" }}
-                      className="col-form-label"
-                    >
-                      Company{" "}
-                      <span style={{ fontSize: 13, color: "red" }}>*</span>
-                    </label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      id="Company"
-                      value={userDetails.Company}
-                      onChange={(e) =>
-                        setUserDetails({
-                          ...userDetails,
-                          Company: e.target.value
-                        })
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label
-                      htmlFor="JobTitle"
-                      style={{ display: "flex" }}
-                      className="col-form-label"
-                    >
-                      Job Title{" "}
-                      <span style={{ fontSize: 13, color: "red" }}>*</span>
-                    </label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      id="JobTitle"
-                      value={userDetails.Destination}
-                      onChange={(e) =>
-                        setUserDetails({
-                          ...userDetails,
-                          Destination: e.target.value
-                        })
-                      }
-                      required
-                    />
-                  </div>
-                  <div>
-                    <button
-                      type="button"
-                      className="bg-[#17a2b8] p-2 text-white rounded"
-                      onClick={() => handleSubmitbtn()}
-                      style={{ marginRight: 10 }}
-                    >
-                      Sign up
-                    </button>
-                    <button
-                      type="button"
-                      className="bg-[#6c757d] p-2 text-white rounded"
-                      onClick={handleCloseModal}
-                      style={{ width: 90 }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
+      <ModalUi showClose={false} isOpen={isModal} title="Sign up form">
+        <form className="px-4 py-3">
+          <div className="mb-3">
+            <label
+              htmlFor="Phone"
+              style={{ display: "flex" }}
+              className="block text-xs text-gray-700 font-semibold"
+            >
+              Phone <span style={{ fontSize: 13, color: "red" }}>*</span>
+            </label>
+            <input
+              type="tel"
+              className="px-3 py-2 w-full border-[1px] border-gray-300 rounded focus:outline-none text-xs"
+              id="Phone"
+              value={userDetails.Phone}
+              onChange={(e) =>
+                setUserDetails({
+                  ...userDetails,
+                  Phone: e.target.value
+                })
+              }
+              required
+            />
           </div>
-        </div>
-      )}
+          <div className="mb-3">
+            <label
+              htmlFor="Company"
+              style={{ display: "flex" }}
+              className="block text-xs text-gray-700 font-semibold"
+            >
+              Company <span style={{ fontSize: 13, color: "red" }}>*</span>
+            </label>
+            <input
+              type="text"
+              className="px-3 py-2 w-full border-[1px] border-gray-300 rounded focus:outline-none text-xs"
+              id="Company"
+              value={userDetails.Company}
+              onChange={(e) =>
+                setUserDetails({
+                  ...userDetails,
+                  Company: e.target.value
+                })
+              }
+              required
+            />
+          </div>
+          <div className="mb-3">
+            <label
+              htmlFor="JobTitle"
+              style={{ display: "flex" }}
+              className="block text-xs text-gray-700 font-semibold"
+            >
+              Job Title <span style={{ fontSize: 13, color: "red" }}>*</span>
+            </label>
+            <input
+              type="text"
+              className="px-3 py-2 w-full border-[1px] border-gray-300 rounded focus:outline-none text-xs"
+              id="JobTitle"
+              value={userDetails.Destination}
+              onChange={(e) =>
+                setUserDetails({
+                  ...userDetails,
+                  Destination: e.target.value
+                })
+              }
+              required
+            />
+          </div>
+          <div>
+            <button
+              type="button"
+              className="px-3 py-1.5 text-white rounded shadow-md text-center focus:outline-none "
+              onClick={() => handleSubmitbtn()}
+              style={{ marginRight: 10, backgroundColor: modalSubmitBtnColor }}
+            >
+              Sign up
+            </button>
+            <button
+              type="button"
+              className="p-1.5 text-black border-[1px] border-[#ccc] shadow-md rounded focus:outline-none"
+              onClick={handleCloseModal}
+              style={{ width: 90, backgroundColor: modalCancelBtnColor }}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </ModalUi>
     </div>
   );
 };

@@ -13,7 +13,7 @@ const WidgetNameModal = (props) => {
     defaultValue: "",
     status: "required",
     hint: "",
-    textvalidate: "text"
+    textvalidate: ""
   });
   const [isValid, setIsValid] = useState(true);
   const statusArr = ["Required", "Optional"];
@@ -48,12 +48,16 @@ const WidgetNameModal = (props) => {
         defaultValue: "",
         status: "required",
         hint: "",
-        textvalidate: "text"
+        textvalidate: ""
       });
     }
   };
   const handleChange = (e) => {
-    setFormdata({ ...formdata, [e.target.name]: e.target.value });
+    if (e) {
+      setFormdata({ ...formdata, [e.target.name]: e.target.value });
+    } else {
+      setFormdata({ ...formdata, textvalidate: "" });
+    }
   };
 
   const handledefaultChange = (e) => {
@@ -82,7 +86,7 @@ const WidgetNameModal = (props) => {
 
   function handleBlurRegex() {
     if (!formdata.textvalidate) {
-      setFormdata({ ...formdata, textvalidate: "text" });
+      setFormdata({ ...formdata, textvalidate: "" });
     } else {
       if (formdata.defaultValue) {
         const regexObject = RegexParser(
@@ -173,7 +177,10 @@ const WidgetNameModal = (props) => {
                     onChange={(e) => handleChange(e)}
                     onBlur={() => handleBlurRegex()}
                   >
-                    <option disabled style={{ fontSize: "13px" }}>
+                    <option
+                      disabled={formdata?.textvalidate}
+                      style={{ fontSize: "13px" }}
+                    >
                       Select...
                     </option>
                     {inputOpt.map((data, ind) => {

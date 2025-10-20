@@ -1,4 +1,4 @@
-import { updateMailCount } from '../../Utils.js';
+import { appName, smtpenable, updateMailCount } from '../../Utils.js';
 async function getDocument(docId) {
   try {
     const query = new Parse.Query('contracts_Document');
@@ -7,10 +7,11 @@ async function getDocument(docId) {
     query.include('CreatedBy');
     query.include('Signers');
     query.include('AuditTrail.UserPtr');
+    query.include('ExtUserPtr.TenantId');
     query.include('Placeholders');
     query.notEqualTo('IsArchive', true);
     const res = await query.first({ useMasterKey: true });
-    const _res = res.toJSON();
+    const _res = res?.toJSON();
     return _res?.ExtUserPtr?.objectId;
   } catch (err) {
     console.log('err ', err);
@@ -18,28 +19,26 @@ async function getDocument(docId) {
 }
 async function sendMailOTPv1(request) {
   try {
-    //--for elearning app side
     let code = Math.floor(1000 + Math.random() * 9000);
     let email = request.params.email;
-    var TenantId = request.params.TenantId ? request.params.TenantId : undefined;
+    let TenantId = request.params.TenantId ? request.params.TenantId : undefined;
+    const AppName = appName;
 
     if (email) {
       const recipient = request.params.email;
-      const mailsender = process.env.SMTP_ENABLE
-        ? process.env.SMTP_USER_EMAIL
-        : process.env.MAILGUN_SENDER;
+      const mailsender = smtpenable ? process.env.SMTP_USER_EMAIL : process.env.MAILGUN_SENDER;
       try {
         await Parse.Cloud.sendEmail({
-          from: 'Opensign™' + ' <' + mailsender + '>',
+          sender: AppName + ' <' + mailsender + '>',
           recipient: recipient,
-          subject: 'Your OpenSign™ OTP',
-          text: 'This email is a test.',
+          subject: `Your ${AppName} OTP`,
+          text: 'otp email',
           html:
-            "<html><head><meta http-equiv='Content-Type' content='text/html; charset=UTF-8' /></head><body><div style='background-color:#f5f5f5;padding:20px'><div style='box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 12px;background-color:white;'><div style='background-color:red;padding:2px;font-family:system-ui; background-color:#47a3ad;'>    <p style='font-size:20px;font-weight:400;color:white;padding-left:20px',>OTP Verification</p></div><div style='padding:20px'><p style='font-family:system-ui;font-size:14px'>Your OTP for OpenSign™ verification is:</p><p style=' text-decoration: none; font-weight: bolder; color:blue;font-size:45px;margin:20px'>" +
+            `<html><head><meta http-equiv='Content-Type' content='text/html;charset=UTF-8' /></head><body><div style='background-color:#f5f5f5;padding:20px'><div style='background-color:white;'><div style='background-color:red;padding:2px;font-family:system-ui;background-color:#47a3ad;'><p style='font-size:20px;font-weight:400;color:white;padding-left:20px;'>OTP Verification</p></div><div style='padding:20px;'><p style='font-family:system-ui;font-size:14px;'>Your OTP for ${AppName} verification is:</p><p style='text-decoration:none;font-weight:bolder;color:blue;font-size:45px;margin:20px;'>` +
             code +
-            '</p></div> </div> </div></body></html>',
+            '</p></div></div></div></body></html>',
         });
-        console.log('OTP sent');
+        console.log('OTP sent', code);
         if (request.params?.docId) {
           const extUserId = await getDocument(request.params?.docId);
           if (extUserId) {

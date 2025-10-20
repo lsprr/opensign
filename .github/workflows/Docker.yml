@@ -1,7 +1,14 @@
 name: ci
+
+# 👇 add this block
+permissions:
+  contents: read        # allow checkout & metadata-action to read repo
+  id-token: write       # needed by docker/metadata-action v4
+
 on:
   push:
     branches:
+      - 'main'
       - 'staging'
 
 jobs:
@@ -10,9 +17,9 @@ jobs:
     strategy:
       matrix:
         include:
-          - image: amolshejole/OpenSign
+          - image: opensign/opensign
             dockerfile: apps/OpenSign/Dockerhubfile
-          - image: amolshejole/OpenSignServer
+          - image: opensign/opensignserver
             dockerfile: apps/OpenSignServer/Dockerhubfile
     steps:
       -

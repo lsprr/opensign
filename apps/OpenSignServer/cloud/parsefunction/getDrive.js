@@ -1,10 +1,10 @@
 import axios from 'axios';
+import { cloudServerUrl, serverAppId } from '../../Utils.js';
 export default async function getDrive(request) {
-  const serverUrl = process.env.SERVER_URL;
-  const appId = process.env.APP_ID;
+  const serverUrl = cloudServerUrl; //process.env.SERVER_URL;
+  const appId = serverAppId;
   const limit = request.params.limit;
   const skip = request.params.skip;
-  const classUrl = serverUrl + '/classes/contracts_Document';
   const docId = request.params.docId;
   try {
     const userRes = await axios.get(serverUrl + '/users/me', {
@@ -15,25 +15,29 @@ export default async function getDrive(request) {
     });
     const userId = userRes.data && userRes.data.objectId;
     if (userId) {
-      let url;
-      if (docId) {
-        url = `${classUrl}?where={"Folder":{"__type":"Pointer","className":"contracts_Document","objectId":"${docId}"},"CreatedBy":{"__type":"Pointer","className":"_User","objectId":"${userId}"},"IsArchive":{"$ne":true}}&include=ExtUserPtr,Signers,Folder&skip=${skip}&limit=${limit}`;
-      } else {
-        url = `${classUrl}?where={"Folder":{"$exists":false},"CreatedBy":{"__type":"Pointer","className":"_User","objectId":"${userId}"},"IsArchive":{"$ne":true}}&include=ExtUserPtr,Signers&skip=${skip}&limit=${limit}`;
-      }
       try {
-        const res = await axios.get(url, {
-          headers: {
-            'X-Parse-Application-Id': appId,
-            'X-Parse-Master-key': process.env.MASTER_KEY,
-          },
-        });
-        // console.log('res.data.results ', res.data.results);
-        if (res.data && res.data.results) {
-          return res.data.results;
+        const query = new Parse.Query('contracts_Document');
+        if (docId) {
+          query.equalTo('Folder', {
+            __type: 'Pointer',
+            className: 'contracts_Document',
+            objectId: docId,
+          });
+          query.include('Folder');
         } else {
-          return [];
+          query.doesNotExist('Folder', true);
         }
+        query.equalTo('CreatedBy', { __type: 'Pointer', className: '_User', objectId: userId });
+        query.include('ExtUserPtr');
+        query.include('ExtUserPtr.TenantId');
+        query.include('Signers');
+        query.notEqualTo('IsArchive', true);
+        query.descending('updatedAt');
+        query.skip(skip);
+        query.limit(limit);
+        query.exclude('AuditTrail');
+        const res = await query.find({ useMasterKey: true });
+        return res;
       } catch (err) {
         console.log('err', err);
         return { error: "You don't have access to drive" };
@@ -42,7 +46,7 @@ export default async function getDrive(request) {
       return { error: 'Please provide required parameter!' };
     }
   } catch (err) {
-    console.log('err', err);
+    console.log('err', err?.response?.data || err);
     if (err.code == 209) {
       return { error: 'Invalid session token' };
     } else {

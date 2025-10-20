@@ -2,152 +2,236 @@ import fs from 'node:fs';
 import https from 'https';
 import formData from 'form-data';
 import Mailgun from 'mailgun.js';
-import { updateMailCount } from '../../Utils.js';
-import sendMailGmailProvider from './sendMailGmailProvider.js';
-async function sendMailProvider(req) {
+import { smtpenable, smtpsecure, updateMailCount } from '../../Utils.js';
+import { createTransport } from 'nodemailer';
+import axios from 'axios';
+async function sendMailProvider(req, plan, monthchange) {
+  const mailgunApiKey = process.env.MAILGUN_API_KEY;
   try {
     let transporterSMTP;
     let mailgunClient;
     let mailgunDomain;
-    if (process.env.SMTP_ENABLE) {
+    if (smtpenable) {
       transporterSMTP = createTransport({
         host: process.env.SMTP_HOST,
         port: process.env.SMTP_PORT || 465,
-        secure: process.env.SMTP_SECURE || true,
+        secure: smtpsecure,
         auth: {
-          user: process.env.SMTP_USER_EMAIL,
+          user: process.env.SMTP_USERNAME ? process.env.SMTP_USERNAME : process.env.SMTP_USER_EMAIL,
           pass: process.env.SMTP_PASS,
         },
       });
     } else {
-      const mailgun = new Mailgun(formData);
-      mailgunClient = mailgun.client({
-        username: 'api',
-        key: process.env.MAILGUN_API_KEY,
-      });
-      mailgunDomain = process.env.MAILGUN_DOMAIN;
+      if (mailgunApiKey) {
+        const mailgun = new Mailgun(formData);
+        mailgunClient = mailgun.client({ username: 'api', key: mailgunApiKey });
+        mailgunDomain = process.env.MAILGUN_DOMAIN;
+      }
     }
     if (req.params.url) {
-      let Pdf = fs.createWriteStream('test.pdf');
-      const writeToLocalDisk = () => {
-        return new Promise((resolve, reject) => {
-          https.get(req.params.url, async function (response) {
-            response.pipe(Pdf);
-            response.on('end', () => resolve('success'));
-          });
-        });
-      };
-      // `writeToLocalDisk` is used to create pdf file from doc url
-      const ress = await writeToLocalDisk();
-      if (ress) {
-        function readTolocal() {
+      const randomNumber = Math.floor(Math.random() * 5000);
+      const testPdf = `test_${randomNumber}.pdf`;
+      try {
+        let Pdf = fs.createWriteStream(testPdf);
+        const writeToLocalDisk = () => {
           return new Promise((resolve, reject) => {
-            setTimeout(() => {
-              let PdfBuffer = fs.readFileSync(Pdf.path);
-              resolve(PdfBuffer);
-            }, 100);
+            const isSecure =
+              new URL(req.params.url)?.protocol === 'https:' &&
+              new URL(req.params.url)?.hostname !== 'localhost';
+            if (isSecure) {
+              https
+                .get(req.params.url, async function (response) {
+                  response.pipe(Pdf);
+                  response.on('end', () => resolve('success'));
+                })
+                .on('error', e => {
+                  console.error(`error: ${e.message}`);
+                  resolve('error');
+                });
+            } else {
+              const httpsAgent = new https.Agent({ rejectUnauthorized: false }); // Disable SSL validation
+              axios
+                .get(req.params.url, { responseType: 'stream', httpsAgent })
+                .then(response => {
+                  response.data.pipe(Pdf);
+                  Pdf.on('finish', () => resolve('success'));
+                  Pdf.on('error', () => resolve('error'));
+                })
+                .catch(e => {
+                  console.log('error', e.message);
+                  resolve('error');
+                });
+            }
           });
-        }
-        //  `PdfBuffer` used to create buffer from pdf file
-        let PdfBuffer = await readTolocal();
-        const pdfName = req.params.pdfName && `${req.params.pdfName}.pdf`;
-        const file = {
-          filename: pdfName || 'exported.pdf',
-          content: process.env.SMTP_ENABLE ? PdfBuffer : undefined, //fs.readFileSync('./exports/exported_file_1223.pdf'),
-          data: process.env.SMTP_ENABLE ? undefined : PdfBuffer,
         };
-
-        let attachment;
-        //  `certificateBuffer` used to create buffer from pdf file
-        try {
-          const certificateBuffer = fs.readFileSync('./exports/certificate.pdf');
-          const certificate = {
-            filename: 'certificate.pdf',
-            content: process.env.SMTP_ENABLE ? certificateBuffer : undefined, //fs.readFileSync('./exports/exported_file_1223.pdf'),
-            data: process.env.SMTP_ENABLE ? undefined : certificateBuffer,
+        // `writeToLocalDisk` is used to create pdf file from doc url
+        const ress = await writeToLocalDisk();
+        if (ress) {
+          function readTolocal() {
+            return new Promise((resolve, reject) => {
+              setTimeout(() => {
+                let PdfBuffer = fs.readFileSync(Pdf.path);
+                resolve(PdfBuffer);
+              }, 100);
+            });
+          }
+          //  `PdfBuffer` used to create buffer from pdf file
+          let PdfBuffer = await readTolocal();
+          const pdfName = req.params.pdfName && `${req.params.pdfName}.pdf`;
+          const filename = req.params.filename;
+          const file = {
+            filename: filename || pdfName || 'exported.pdf',
+            content: smtpenable ? PdfBuffer : undefined,
+            data: smtpenable ? undefined : PdfBuffer,
           };
-          attachment = [file, certificate];
-        } catch (err) {
-          attachment = [file];
-          console.log('Err in read certificate sendmailv3', err);
-        }
-        const from = req.params.from || '';
-        const mailsender = process.env.SMTP_ENABLE
-          ? process.env.SMTP_USER_EMAIL
-          : process.env.MAILGUN_SENDER;
 
-        const messageParams = {
-          from: from + ' <' + mailsender + '>',
-          to: req.params.recipient,
-          subject: req.params.subject,
-          text: req.params.text || 'mail',
-          html: req.params.html || '',
-          attachments: process.env.SMTP_ENABLE ? attachment : undefined,
-          attachment: process.env.SMTP_ENABLE ? undefined : attachment,
-        };
-        if (transporterSMTP) {
-          const res = await transporterSMTP.sendMail(messageParams);
-          console.log('Res ', res);
-          if (!res.err) {
-            if (req.params?.extUserId) {
-              await updateMailCount(req.params.extUserId);
-            }
+          let attachment;
+          const certificatePath = req.params.certificatePath || `./exports/certificate.pdf`;
+          if (fs.existsSync(certificatePath)) {
             try {
-              fs.unlinkSync('./exports/certificate.pdf');
+              //  `certificateBuffer` used to create buffer from pdf file
+              const certificateBuffer = fs.readFileSync(certificatePath);
+              const certificate = {
+                filename: 'certificate.pdf',
+                content: smtpenable ? certificateBuffer : undefined, //fs.readFileSync('./exports/exported_file_1223.pdf'),
+                data: smtpenable ? undefined : certificateBuffer,
+              };
+              attachment = [file, certificate];
             } catch (err) {
-              console.log('Err in unlink certificate sendmailv3');
+              attachment = [file];
+              console.log('Err in read certificate sendmailv3', err);
             }
-            return { status: 'success' };
+          } else {
+            attachment = [file];
           }
-        } else {
-          const res = await mailgunClient.messages.create(mailgunDomain, messageParams);
-          console.log('Res ', res);
-          if (res.status === 200) {
-            if (req.params?.extUserId) {
-              await updateMailCount(req.params.extUserId);
+          const from = req.params.from || '';
+          const mailsender = smtpenable ? process.env.SMTP_USER_EMAIL : process.env.MAILGUN_SENDER;
+          const replyto = req.params?.replyto || '';
+          const messageParams = {
+            from: from + ' <' + mailsender + '>',
+            to: req.params.recipient,
+            subject: req.params.subject,
+            text: req.params.text || 'mail',
+            html: req.params.html || '',
+            attachments: smtpenable ? attachment : undefined,
+            attachment: smtpenable ? undefined : attachment,
+            bcc: req.params.bcc ? req.params.bcc : undefined,
+            replyTo: replyto ? replyto : undefined,
+          };
+          if (transporterSMTP) {
+            const res = await transporterSMTP.sendMail(messageParams);
+            console.log('smtp transporter res: ', res?.response);
+            if (!res.err) {
+              if (req.params?.extUserId) {
+                await updateMailCount(req.params.extUserId, plan, monthchange);
+              }
+              if (fs.existsSync(certificatePath)) {
+                try {
+                  fs.unlinkSync(certificatePath);
+                } catch (err) {
+                  console.log('Err in unlink certificate sendmailv3');
+                }
+              }
+              if (fs.existsSync(testPdf)) {
+                try {
+                  fs.unlinkSync(testPdf);
+                } catch (err) {
+                  console.log('Err in unlink pdf sendmailv3');
+                }
+              }
+              return { status: 'success' };
             }
-            try {
-              fs.unlinkSync('./exports/certificate.pdf');
-            } catch (err) {
-              console.log('Err in unlink certificate sendmailv3');
+          } else {
+            if (mailgunApiKey) {
+              const res = await mailgunClient.messages.create(mailgunDomain, messageParams);
+              console.log('mailgun res: ', res?.status);
+              if (res.status === 200) {
+                if (req.params?.extUserId) {
+                  await updateMailCount(req.params.extUserId, plan, monthchange);
+                }
+                if (fs.existsSync(certificatePath)) {
+                  try {
+                    fs.unlinkSync(certificatePath);
+                  } catch (err) {
+                    console.log('Err in unlink certificate sendmailv3');
+                  }
+                }
+                if (fs.existsSync(testPdf)) {
+                  try {
+                    fs.unlinkSync(testPdf);
+                  } catch (err) {
+                    console.log('Err in unlink pdf sendmailv3');
+                  }
+                }
+                return { status: 'success' };
+              }
+            } else {
+              if (fs.existsSync(certificatePath)) {
+                try {
+                  fs.unlinkSync(certificatePath);
+                } catch (err) {
+                  console.log('Err in unlink certificate sendmailv3');
+                }
+              }
+              if (fs.existsSync(testPdf)) {
+                try {
+                  fs.unlinkSync(testPdf);
+                } catch (err) {
+                  console.log('Err in unlink pdf sendmailv3');
+                }
+              }
+              return { status: 'error' };
             }
-            return {
-              status: 'success',
-            };
           }
+        }
+      } catch (err) {
+        console.log('err in sendmailv3', err);
+        if (fs.existsSync(testPdf)) {
+          try {
+            fs.unlinkSync(testPdf);
+          } catch (err) {
+            console.log('Err in unlink pdf sendmailv3');
+          }
+        }
+        if (err) {
+          return { status: 'error' };
         }
       }
     } else {
       const from = req.params.from || '';
-      const mailsender = process.env.SMTP_ENABLE
-        ? process.env.SMTP_USER_EMAIL
-        : process.env.MAILGUN_SENDER;
-
+      const mailsender = smtpenable ? process.env.SMTP_USER_EMAIL : process.env.MAILGUN_SENDER;
+      const replyto = req.params?.replyto || '';
       const messageParams = {
         from: from + ' <' + mailsender + '>',
         to: req.params.recipient,
         subject: req.params.subject,
         text: req.params.text || 'mail',
         html: req.params.html || '',
+        bcc: req.params.bcc ? req.params.bcc : undefined,
+        replyTo: replyto ? replyto : undefined,
       };
 
       if (transporterSMTP) {
         const res = await transporterSMTP.sendMail(messageParams);
-        console.log('Res ', res);
+        console.log('smtp transporter res: ', res?.response);
         if (!res.err) {
           if (req.params?.extUserId) {
-            await updateMailCount(req.params.extUserId);
+            await updateMailCount(req.params.extUserId, plan, monthchange);
           }
           return { status: 'success' };
         }
       } else {
-        const res = await mailgunClient.messages.create(mailgunDomain, messageParams);
-        console.log('Res ', res);
-        if (res.status === 200) {
-          if (req.params?.extUserId) {
-            await updateMailCount(req.params.extUserId);
+        if (mailgunApiKey) {
+          const res = await mailgunClient.messages.create(mailgunDomain, messageParams);
+          console.log('mailgun res: ', res?.status);
+          if (res.status === 200) {
+            if (req.params?.extUserId) {
+              await updateMailCount(req.params.extUserId, plan, monthchange);
+            }
+            return { status: 'success' };
           }
-          return { status: 'success' };
+        } else {
+          return { status: 'error' };
         }
       }
     }
@@ -158,45 +242,10 @@ async function sendMailProvider(req) {
     }
   }
 }
+
 async function sendmailv3(req) {
-  const mailProvider = req.params.mailProvider || 'default';
-  if (mailProvider) {
-    try {
-      const extUserId = req.params.extUserId || '';
-      const pdfName = req.params.pdfName || '';
-      const template = {
-        sender: req.params.from || '',
-        receiver: req.params.recipient,
-        subject: req.params.subject,
-        html: req.params.html || '',
-        url: req.params.url ? req.params.url : '',
-        pdfName: pdfName,
-      };
-      const extUserQuery = new Parse.Query('contracts_Users');
-      const extRes = await extUserQuery.get(extUserId, { useMasterKey: true });
-      if (extRes) {
-        const _extRes = JSON.parse(JSON.stringify(extRes));
-        if (_extRes.google_refresh_token && mailProvider === 'google') {
-          const res = await sendMailGmailProvider(_extRes, template);
-          if (res.code === 200) {
-            await updateMailCount(req.params.extUserId);
-            return { status: 'success' };
-          } else {
-            return { status: 'error' };
-          }
-        } else {
-          const nonCustomMail = await sendMailProvider(req);
-          return nonCustomMail;
-        }
-      }
-    } catch (err) {
-      console.log('err in send custom mail', err);
-      return { status: 'error' };
-    }
-  } else {
-    const nonCustomMail = await sendMailProvider(req);
-    return nonCustomMail;
-  }
+  const nonCustomMail = await sendMailProvider(req);
+  return nonCustomMail;
 }
 
 export default sendmailv3;

@@ -3,7 +3,8 @@ import multer from 'multer';
 import multerS3 from 'multer-s3';
 import aws from 'aws-sdk';
 import dotenv from 'dotenv';
-dotenv.config();
+import { cloudServerUrl, serverAppId, useLocal } from '../../Utils.js';
+dotenv.config({ quiet: true });
 
 function sanitizeFileName(fileName) {
   // Remove spaces and invalid characters
@@ -48,10 +49,10 @@ async function uploadFile(req, res) {
     const DO_SECRET_ACCESS_KEY = process.env.DO_SECRET_ACCESS_KEY;
     const DO_SPACE = process.env.DO_SPACE;
 
-    const parseBaseUrl = process.env.SERVER_URL;
-    const parseAppId = process.env.APP_ID;
+    const parseBaseUrl = cloudServerUrl; //process.env.SERVER_URL;
+    const parseAppId = serverAppId;
     let fileStorage;
-    if (process.env.USE_LOCAL == 'TRUE') {
+    if (useLocal === 'true') {
       fileStorage = multer.diskStorage({
         destination: function (req, file, cb) {
           cb(null, 'files/files');
@@ -66,7 +67,7 @@ async function uploadFile(req, res) {
           newFileName = sanitizeFileName(
             newFileName + '_' + new Date().toISOString() + '.' + extension
           );
-          console.log(newFileName);
+          // console.log(newFileName);
           cb(null, newFileName);
         },
       });
@@ -95,7 +96,7 @@ async function uploadFile(req, res) {
             newFileName = sanitizeFileName(
               newFileName + '_' + new Date().toISOString() + '.' + extension
             );
-            console.log(newFileName);
+            // console.log(newFileName);
             cb(null, newFileName);
           },
         });
@@ -114,7 +115,7 @@ async function uploadFile(req, res) {
             newFileName = sanitizeFileName(
               newFileName + '_' + new Date().toISOString() + '.' + extension
             );
-            console.log(newFileName);
+            // console.log(newFileName);
             cb(null, newFileName);
           },
         });
@@ -147,8 +148,8 @@ async function uploadFile(req, res) {
       const status = 'Success';
       //res.header("Access-Control-Allow-Headers", "Content-Type");
       //res.setHeader("Access-Control-Allow-Origin", "*");
-      if (process.env.USE_LOCAL == 'TRUE') {
-        console.log(req.file);
+      if (useLocal === 'true') {
+        // console.log(req.file);
         var fileUrl = `${parseBaseUrl}/files/${parseAppId}/${req.file.filename}`;
       } else {
         var fileUrl = req.file.location;

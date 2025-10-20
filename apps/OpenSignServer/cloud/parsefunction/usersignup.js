@@ -1,6 +1,7 @@
 import axios from 'axios';
-const serverUrl = process.env.SERVER_URL;
-const APPID = process.env.APP_ID;
+import { cloudServerUrl, serverAppId } from '../../Utils.js';
+const serverUrl = cloudServerUrl; //process.env.SERVER_URL;
+const APPID = serverAppId;
 const masterKEY = process.env.MASTER_KEY;
 
 async function saveUser(userDetails) {
@@ -29,8 +30,10 @@ async function saveUser(userDetails) {
     const user = new Parse.User();
     user.set('username', userDetails.email);
     user.set('password', userDetails.password);
-    user.set('email', userDetails.email);
-    user.set('phone', userDetails.phone);
+    user.set('email', userDetails?.email?.toLowerCase()?.replace(/\s/g, ''));
+    if (userDetails?.phone) {
+      user.set('phone', userDetails.phone);
+    }
     user.set('name', userDetails.name);
 
     const res = await user.signUp();
@@ -40,10 +43,9 @@ async function saveUser(userDetails) {
 }
 export default async function usersignup(request) {
   const userDetails = request.params.userDetails;
-  const subscription = request.params.subscription;
-  const user = await saveUser(userDetails);
 
   try {
+    const user = await saveUser(userDetails);
     const extClass = userDetails.role.split('_')[0];
 
     const extQuery = new Parse.Query(extClass + '_Users');
@@ -56,18 +58,6 @@ export default async function usersignup(request) {
     if (extUser) {
       return { message: 'User already exist' };
     } else {
-      const roleurl = `${serverUrl}/functions/AddUserToRole`;
-      const headers = {
-        'Content-Type': 'application/json',
-        'X-Parse-Application-Id': APPID,
-        sessionToken: user.sessionToken, //localStorage.getItem("accesstoken"),
-      };
-      let body = {
-        appName: extClass,
-        roleName: userDetails.role,
-        userId: user.id,
-      };
-      let role = await axios.post(roleurl, body, { headers: headers });
       // console.log("role ", role);
       const partnerCls = Parse.Object.extend('partners_Tenant');
       const partnerQuery = new partnerCls();
@@ -77,9 +67,11 @@ export default async function usersignup(request) {
         objectId: user.id,
       });
 
-      partnerQuery.set('ContactNumber', userDetails.phone);
-      partnerQuery.set('TenantName', userDetails.name);
-      partnerQuery.set('EmailAddress', userDetails.email);
+      if (userDetails?.phone) {
+        partnerQuery.set('ContactNumber', userDetails.phone);
+      }
+      partnerQuery.set('TenantName', userDetails.company);
+      partnerQuery.set('EmailAddress', userDetails?.email?.toLowerCase()?.replace(/\s/g, ''));
       partnerQuery.set('IsActive', true);
       partnerQuery.set('CreatedBy', {
         __type: 'Pointer',
@@ -111,9 +103,11 @@ export default async function usersignup(request) {
         objectId: user.id,
       });
       newObj.set('UserRole', userDetails.role);
-      newObj.set('Email', userDetails.email);
+      newObj.set('Email', userDetails?.email?.toLowerCase()?.replace(/\s/g, ''));
       newObj.set('Name', userDetails.name);
-      newObj.set('Phone', userDetails.phone);
+      if (userDetails?.phone) {
+        newObj.set('Phone', userDetails?.phone);
+      }
       newObj.set('TenantId', {
         __type: 'Pointer',
         className: 'partners_Tenant',
@@ -125,42 +119,13 @@ export default async function usersignup(request) {
       if (userDetails && userDetails.jobTitle) {
         newObj.set('JobTitle', userDetails.jobTitle);
       }
+      if (userDetails && userDetails?.timezone) {
+        newObj.set('Timezone', userDetails.timezone);
+      }
       const extRes = await newObj.save(null, { useMasterKey: true });
-      await saveSubscription(extRes.id, user.id, tenantRes.id, subscription);
       return { message: 'User sign up', sessionToken: user.sessionToken };
     }
   } catch (err) {
     console.log('Err ', err);
-  }
-}
-
-async function saveSubscription(extUserId, UserId, tenantId, subscription) {
-  const SubscriptionId = subscription?.data?.subscription?.subscription_id || '';
-  const Next_billing_date = subscription?.data?.subscription?.next_billing_at || '';
-  const planCode = subscription?.data?.subscription?.plan?.plan_code || '';
-  try {
-    const createSubscription = new Parse.Object('contracts_Subscriptions');
-    createSubscription.set('SubscriptionId', SubscriptionId);
-    createSubscription.set('SubscriptionDetails', subscription);
-    createSubscription.set('ExtUserPtr', {
-      __type: 'Pointer',
-      className: 'contracts_Users',
-      objectId: extUserId,
-    });
-    createSubscription.set('CreatedBy', {
-      __type: 'Pointer',
-      className: '_User',
-      objectId: UserId,
-    });
-    createSubscription.set('TenantId', {
-      __type: 'Pointer',
-      className: 'partners_Tenant',
-      objectId: tenantId,
-    });
-    createSubscription.set('Next_billing_date', new Date(Next_billing_date));
-    createSubscription.set('PlanCode', planCode);
-    await createSubscription.save(null, { useMasterKey: true });
-  } catch (err) {
-    console.log('err in save subscription pgsignup', err);
   }
 }
